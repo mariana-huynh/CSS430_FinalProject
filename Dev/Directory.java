@@ -22,15 +22,14 @@ public class Directory
         root.getChars(0, fsize[0],fNames[0],0 ); //fNames[0] includes "/"
 
     }
-    //sets size of each file and it's name
     public int bytesToDirectory(byte data[])
     {
         //assumes data[] received directory information from disk
         //initializes the Directory instance with this data[]
 
-        int size = (fsize.length * 4) + (fNames.length * 60); //the size of all files + the size of each file name(60 bytes max);
+
         int offset = 0;
-        //convert the file sizes
+        //convert byte array
         for(int i = 0; i < fsize.length; i++)
         {
             //use the SysLib bytesToInt
@@ -38,11 +37,23 @@ public class Directory
             offset += 4;
 
         }
-        //convert the file names
+        //populate the directory
+        for(int j = 0; j < fNames.length; j++)
+        {
+            //each file name is 60 bytes
+            //gets the name
+            String fName = new String(data, offset, maxChars * 2);
+            //get the characters
+            fName.getChars(0, fsize[j], fNames[j], 0);
+            //update the offset
+
+            offset += maxChars*2;
+
+        }
 
 
 
-        SysLib.bytes2int(data, offset);
+        return 0;
 
     }
 
