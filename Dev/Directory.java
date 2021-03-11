@@ -1,4 +1,3 @@
-
 import java.nio.charset.StandardCharsets;
 
 public class Directory
@@ -22,6 +21,7 @@ public class Directory
         root.getChars(0, fsize[0],fNames[0],0 ); //fNames[0] includes "/"
 
     }
+    //sets size of each file and it's name
     public int bytesToDirectory(byte data[])
     {
         //assumes data[] received directory information from disk
@@ -83,11 +83,12 @@ public class Directory
         //convert file names
         for(int j = 0; j < fNames.length; j++)
         {
-            String part = fNames[j].toString();
+
+            String part = new String(fNames[j], 0, fsize[j]);
             byte[] nameData = part.getBytes();
             System.arraycopy(nameData, 0, data, offset, nameData.length);
 
-            offset += 1; // one byte in a char
+            offset += maxChars * 2; // one byte in a char
 
         }
         return data;
@@ -98,20 +99,63 @@ public class Directory
     {
         //filename is the one of a file to be created
         //allocates a new inode number for this filename
+        if(filename.length() > maxChars)
+        {
+            return -1;
+
+        }
+        for(int i = 0; i < fsize.length; i++)
+        {
+            if(fsize[i] == 0)
+            {
+                for(int j = 0; j < filename.length(); j++)
+                {
+                    fNames[i][j] = filename.charAt(j);
+                }
+                fsize[i] = filename.length();
+
+
+            }
+        }
+        return 0;
     }
 
     public boolean ifree(short iNumber)
     {
         //deallocates this inumber(inode number)
         //the corresponding file will be deleted
+        int size = fsize[iNumber];
+        fsize[iNumber] = 0;
+        for(int i = 0; i < size; i++)
+        {
+            fNames[iNumber][i] = 0;
+
+        }
+        return true;
+
     }
 
     public short namei(String filename)
     {
+        //find the file name in fNames that matches filename and return the index?
+        for(int i = 0; i < fsize.length; i++) // loop through each file size
+        {
+            if(filename.length() == fsize[i]) //same length
+            {
+                //get the fName string and see if it equals filename
+                //sets string to the chars between where fname is to the length
+                String fname = new String(fNames[i], 0, fsize[i]);
+                if(fname.equals(filename))
+                {
+                    return (short)i;
+                }
+
+            }
+
+        }
+        return -1;
 
     }
-
-
 
 
 }
