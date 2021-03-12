@@ -224,10 +224,7 @@ public class FileSystem
             ftEnt.seekPtr =  fsize(ftEnt) + offset;
 
         }
-        else
-        {
-
-        }
+        return ftEnt.seekPtr;
 
 
 
