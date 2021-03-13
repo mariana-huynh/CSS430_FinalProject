@@ -63,6 +63,11 @@ private static SyncQueue ioQueue;    // I/O queue
 private final static int COND_DISK_REQ = 1; // wait condition
 private final static int COND_DISK_FIN = 2; // wait condition
 
+// my code
+// instantiate file system
+private static FileSystem fs;
+// end my code
+
 // Standard input
 private static BufferedReader input
 = new BufferedReader( new InputStreamReader( System.in ) );
@@ -88,6 +93,12 @@ case INTERRUPT_SOFTWARE: // System calls
     // instantiate synchronized queues
     ioQueue = new SyncQueue( );
     waitQueue = new SyncQueue( scheduler.getMaxThreads( ) );
+
+    // my code
+    // instantiate a file system
+    fs = new FileSystem(1000);
+    // end my code
+
     return OK;
     case EXEC:
     return sysExec( ( String[] )args );
