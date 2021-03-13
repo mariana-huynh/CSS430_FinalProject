@@ -62,8 +62,9 @@ public class Directory
         //converts and return Directory information into a plain byte array
         //this byte array will be written back to disk
         //only meaningful directory information should be converted into bytes
-
-        int size = (fsize.length * 4) + (fNames.length * 60); //the size of all files + the size of each file name(60 bytes max);
+        
+        //the size of all fsize*4(4 bytes in an int) + fNames size * maxChars * 2(char is 2 bytes)
+        int size = (fsize.length * 4) + (fNames.length * (maxChars * 2)); 
         byte[] data = new byte[size]; //would be the size of whole directory byte array
         // data is the resulting array
         // i is the value

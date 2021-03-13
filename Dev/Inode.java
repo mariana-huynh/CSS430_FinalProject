@@ -30,26 +30,139 @@ public class Inode
         int blockNum = (16 / iNumber) + 1;
 
         //Check the inode on the disk by reading from it
-        byte[] nodeInfo = new byte[Disk.blockSize]; // get info from disk
+        byte[] nodeInfo = new byte[Disk.blockSize];
         SysLib.rawread(blockNum, nodeInfo);
+
         //Then write back it's contents to disk immediately
+        //info to be written back/ updated length, count, flag,
         int offset = iNumber * 32 //16 inodes per block and 32 bytes per block
         length = SysLib.bytes2int(nodeInfo, offset);
+        offset += 4; //int is 4 bytes
 
-        //count =
-        //flag =
+        count = SysLib.bytes2short(nodeInfo, offset);
+        offset += 2; //short is 2 bytes
+
+        flag = SysLib.bytes2short(nodeInfo, offset);
+        offset += 2; //short is 2 bytes
 
         for(int i = 0; i < directSize; i++)
         {
             //update direct
+            direct[i] = SysLib.bytes2short(nodeInfo, offset);
+            offset += 2;
         }
         //update indirect
+        indirect = SysLib.bytes2short(nodeInfo, offset);
 
-        //info to be written back/ updated length, count, flag,
 
     }
     int toDisk(short iNumber)
     {
+        //write from iNumber block to disk?
+        //get the block number that corresponds the the iNumber
+        int blockNum = (16 / iNumber) + 1;
+
+        //Hold Inode info
+        byte[] nodeData = new byte[Disk.blockSize];
+        int offset = 0;
+
+        //get this inode data and convert to bytes
+        SysLib.int2bytes(length, nodeData, offset);
+        offset += 4; //int is 4 bytes
+
+        SysLib.short2bytes(count, nodeData, offset);
+        offset += 2; //short is 2 bytes
+
+        SysLib.short2bytes(flag, nodeData, offset);
+        offset += 2; //short is 2 bytes
+        //convert direct
+        for(int i = 0; i < directSize; i++)
+        {
+            //update direct
+            direct[i] = SysLib.short2bytes(nodeData, offset);
+            offset += 2;
+        }
+        //covert indirect
+        indirect = SysLib.short2bytes(nodeData, offset);
+
+        //write to disk to the length of nodeData
+        SysLib.rawwrite(blockNum, nodeData);
+
+        return 0;
+
+
+    }
+    int getBlockNumber(short iNumber)
+    {
+        return (16 / iNumber) + 1;
+
+    }
+    int getSeekPtrBlock(int seek)
+    {
+        int block = seek / Disk.blockSize;
+        //direct blocks = 11, point to data blocks
+        if(block < directSize)
+        {
+            return direct[block];
+        }
+        else
+        {
+            //scan the index block, indirect pointer
+            byte[] blockData = new byte[Disk.size];
+            SysLib.rawread(indirect, blockData);
+            int offset = (block - directSize) * 2;
+
+            return SysLib.short2int(blockData, offset); //indirect is a short
+
+        }
+
+
+    }
+    //update the block, used with write in FS
+    boolean setBlock(int freeBlock)
+    {
+        int blockNum = (length / Disk.blockSize) + 1;
+
+        if(blockNum < directSize)
+        {
+            direct[blockNum] = freeBlock;
+            return true;
+        }
+        else if(indirect == -1) //indirect available
+        {
+            indirect = (short)freeBlock;
+            return true;
+
+        }
+        else if(indirect < 0)//indirect
+        {
+            //scan the index block, indirect pointer
+            byte[] blockData = new byte[Disk.size];
+            SysLib.rawread(indirect, blockData);
+
+            int offset = 0;
+            short indirBlockNum = SysLib.bytes2short(blockData, offset); //indirect is a short
+            offset += 2; //short is 2 bytes
+
+            //go till the next empty indirect block
+            while (indirBlockNum != -1)
+            {
+                indirBlockNum = SysLib.bytes2short(blockData, offset);
+                offset += 2;
+
+            }
+
+            //get the free block stopped at
+            SysLib.short2bytes((short)freeBlock, blockData, offset);
+            //update
+            SysLib.rawwrite(indirect, blockData);
+            return true;
+
+        }
+
+
+
+
 
     }
 
