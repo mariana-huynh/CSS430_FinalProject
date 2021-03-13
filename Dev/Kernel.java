@@ -99,7 +99,6 @@ public class Kernel
                         // my code
                         // instantiate a file system
                         fs = new FileSystem(1000);
-
                         // end my code
 
                         return OK;

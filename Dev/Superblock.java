@@ -5,15 +5,15 @@
 //      Number of inodes
 //      Block number of the head block of the free list
 
-public class Superblock 
+public class SuperBlock 
 {
-    public final static int  = 64; 
+    public final static int DEFAULT_INODES = 64; 
 
     public int totalBlocks;    // number of disk blocks
-    public int totalInodes;    // number of inodes
+    public int inodeBlocks;    // number of inodes
     public int freeList;     // block number of the free list's head
 
-    public Superblock (int disksize)
+    public SuperBlock (int disksize)
     {
         // read the superblock from the disk
         byte[] superBlock = new byte[Disk.blockSize];
@@ -21,10 +21,10 @@ public class Superblock
         // converts num bytes in superBlock to an int
         // offset needs to be multiples of 4 as the num bytes in an int is 4
         totalBlocks = SysLib.bytes2int(superBlock, 0);   
-        totalInodes = SysLib.bytes2int(superBlock, 4);
+        inodeBlocks = SysLib.bytes2int(superBlock, 4);
         freeList = SysLib.bytes2int(superBlock, 8);
 
-        if (totalBlocks == diskSize && totalInodes > 0 && freeList >= 2)
+        if (totalBlocks == disksize && inodeBlocks > 0 && freeList >= 2)
         {
             // disk contents are valid
             return;
@@ -32,7 +32,7 @@ public class Superblock
         else
         {
             // need to format disk
-            totalBlocks = diskSize;
+            totalBlocks = disksize;
             format(DEFAULT_INODES);
         }
     }
@@ -46,16 +46,16 @@ public class Superblock
 
         byte[] blockData = new byte[Disk.blockSize];
 
-        totalInodes = numInodeBlocks;
+        inodeBlocks = numInodeBlocks;
 
-        for (int i = 0; i < totalInodes; i++)
+        for (int i = 0; i < inodeBlocks; i++)
         {
             Inode newInode = new Inode();
             newInode.flag = 0;  // UNUSED
             newInode.toDisk((short) i);
         }
 
-        freeList = totalInodes / 16 + 1;
+        freeList = inodeBlocks / 16 + 1;
 
         // create new free blocks and write to disk
         for (int i = freeList; i < totalBlocks; i++)
@@ -84,7 +84,7 @@ public class Superblock
 
     // getFreeBlock()
     // dequeue the top block from the free list
-    public void getFreeBlock()
+    public int getFreeBlock()
     {
         int freeBlocks = freeList;
 

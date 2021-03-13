@@ -27,7 +27,10 @@ public class Inode
         //retrieving inode from disk
         //first: get the block number where the inode is on the disk there are 16 inodes on the disk
 
-        int blockNum = (16 / iNumber) + 1;
+        
+        int blockNum = (16 / (iNumber + 1));
+
+        // int blockNum = (16 / iNumber) + 1;
 
         //Check the inode on the disk by reading from it
         byte[] nodeInfo = new byte[Disk.blockSize];
@@ -35,7 +38,7 @@ public class Inode
 
         //Then write back it's contents to disk immediately
         //info to be written back/ updated length, count, flag,
-        int offset = iNumber * 32 //16 inodes per block and 32 bytes per block
+        int offset = iNumber * 32; //16 inodes per block and 32 bytes per block
         length = SysLib.bytes2int(nodeInfo, offset);
         offset += 4; //int is 4 bytes
 
@@ -79,11 +82,13 @@ public class Inode
         for(int i = 0; i < directSize; i++)
         {
             //update direct
-            direct[i] = SysLib.short2bytes(nodeData, offset);
+            // direct[i] = SysLib.short2bytes(nodeData, offset);
+            direct[i] = SysLib.bytes2short(nodeData, offset);
             offset += 2;
         }
         //covert indirect
-        indirect = SysLib.short2bytes(nodeData, offset);
+        // indirect = SysLib.short2bytes(nodeData, offset);
+        indirect = SysLib.bytes2short(nodeData, offset);
 
         //write to disk to the length of nodeData
         SysLib.rawwrite(blockNum, nodeData);
@@ -108,12 +113,11 @@ public class Inode
         else
         {
             //scan the index block, indirect pointer
-            byte[] blockData = new byte[Disk.size];
+            byte[] blockData = new byte[Disk.blockSize];
             SysLib.rawread(indirect, blockData);
             int offset = (block - directSize) * 2;
 
-            return SysLib.short2int(blockData, offset); //indirect is a short
-
+            return SysLib.bytes2int(blockData, offset); //indirect is a short
         }
 
 
@@ -125,19 +129,19 @@ public class Inode
 
         if(blockNum < directSize)
         {
-            direct[blockNum] = freeBlock;
+            direct[blockNum] = (short) freeBlock;
             return true;
         }
         else if(indirect == -1) //indirect available
         {
-            indirect = (short)freeBlock;
+            indirect = (short) freeBlock;
             return true;
 
         }
         else if(indirect < 0)//indirect
         {
             //scan the index block, indirect pointer
-            byte[] blockData = new byte[Disk.size];
+            byte[] blockData = new byte[Disk.blockSize];
             SysLib.rawread(indirect, blockData);
 
             int offset = 0;
@@ -157,15 +161,8 @@ public class Inode
             //update
             SysLib.rawwrite(indirect, blockData);
             return true;
-
         }
 
-
-
-
-
+        return true;
     }
-
-
-
 }

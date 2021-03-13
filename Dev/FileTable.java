@@ -2,6 +2,7 @@
 // Holds all the FileTableEntrys (in a vector)
 // The FileTable is shared by all threads?
 // Allows a user to allocate and delete files within the OS
+import java.util.*;
 
 public class FileTable 
 {   
