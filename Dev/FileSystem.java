@@ -1,3 +1,5 @@
+// Mariana: deallocAllBlocks(), delete(), format(), sync()
+
 public class FileSystem
 {
     private SuperBlock superblock;
@@ -23,14 +25,33 @@ public class FileSystem
         }
         close(dirEnt);
     }
+
     void sync()
     {
-
+        FileTableEntry tempFTE = open("/", "w");   // open the fte of the current working directory
+        byte[] dirData = directory.directoryToBytes();  // translate directory data to bytes
+        write (tempFTE, dirData);   // write back to disk all data from directory
+        close (tempFTE);   // close the fte when you are done
+        superblock.sync();   
     }
+
     boolean format(int files)
     {
+        // if the file table is in use
+        if (!filetable.fempty())
+        {
+            return false;
+        }
 
+        superblock.format(files);
+        
+        // everything reset: create a new FileTable and Directory
+        directory = new Directory(superblock.totalInodes);
+        filetable = new FileTable(directory);
+        
+        return true;
     }
+
     FileTableEntry open(String filename, String mode)
     {
         //falloc allocates a new file(structure) table entry for the file name
@@ -127,13 +148,85 @@ public class FileSystem
 
 
     }
+
     private boolean deallocAllBlocks(FileTableEntry ftEnt)
     {
+        boolean deallocated = false;
+        
+        // return false if ftEnt is null, or ftEnt inode is null, or if the inode is being used
+        if (ftEnt == null || ftEnt.inode == null || inode.count > 1)
+        {
+            return false;
+        }
 
+        // deallocate the direct blocks
+        // inode.length = end of file?
+        // each inode has 11 direct pointers and 1 indirect pointer
+        for (short i = 0; i < 11; i++)
+        {
+            if (ftEnt.inode.direct[i] == -1)   // block location is invalid
+            {
+                continue;  
+            }
+            else
+            {
+                superblock.returnBlock(ftEnt.inode.direct[i]);
+                ftEnt.inode.direct[i] = -1;
+            }
+        }
+
+        // deallocate the indirect block
+        byte[] blockData;
+
+        if (ftEnt.inode.indirect == -1)
+        {
+            blockData = new byte[Disk.blockSize];
+            SysLib.rawread(ftEnt.inode.indirect, blockData);
+            ftEnt.inode.indirect = -1;
+        }
+        else
+        {
+            blockData = null; 
+        }
+
+        if (blockData != null)
+        {
+            int offset = 0;
+            short block = SysLib.bytes2short(blockData, offset);
+            while (block != -1)
+            {
+                superblock.returnBlock(block);
+                block = SysLib.bytes2short(blockData, offset);
+            }
+
+            superBlock.returnBlock(ftEnt.inode.indirect);
+        }
+
+        // write inode to disk
+        ftEnt.inode.toDisk(ftEnt.iNumber);
+
+        return true;
     }
+
     boolean delete(String filename)
     {
+        boolean deleted = false;
 
+        if (filename == null || (filename.compareTo("") == 0)
+        {
+            return deleted;
+        }
+
+        FileTableEntry tempFTE = open(filename, "w");
+        if (tempFTE != null)
+        {
+            tempFTE.inode.flag = 4;  // 4 = delete
+            directory.ifree(tempFTE.iNumber);
+            filetable.ffree(tempFTE);
+            deleted = true;
+        }
+
+        return deleted;
     }
 
     private final int SEEK_SET = 0;
