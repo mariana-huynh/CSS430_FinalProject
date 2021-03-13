@@ -115,4 +115,51 @@ public class SysLib {
 	        ((b[offset+2] & 0xff) << 8) + (b[offset+3] & 0xff);
 	return n;
     }
+
+    // my code
+    public static int format (int files)
+    {
+        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.FORMAT, files, null);
+    }
+
+    public static int open (String filename, String mode)
+    {
+        String[] params = new String[2];
+        params[0] = filename;
+        params[1] = mode;
+        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.OPEN, 0, params);
+    }
+
+    public static int read (int fd, byte[] buffer)
+    {
+        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.READ, fd, buffer);
+    }
+
+    public static int write (int fd, byte[] buffer)
+    {
+        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.WRITE, fd, buffer);
+    }
+
+    public static int seek (int fd, int offset, int whence)
+    {
+        String[] params = new String[2];
+        params[0] = offset;
+        params[1] = whence;
+        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.SEEK, fd, params);
+    }
+
+    public static int close (int fd)
+    {
+        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.CLOSE, fd, null);
+    }
+
+    public static int delete (String filename)
+    {
+        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.DELETE, filename, null);
+    }
+
+    public static int fsize (int fd)
+    {
+        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.SIZE, fd, null);
+    }
 }
