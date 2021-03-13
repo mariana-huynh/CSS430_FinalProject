@@ -5,7 +5,7 @@ public class FileSystem
     private SuperBlock superblock;
     private Directory directory;
     private FileTable filetable;
-    private<Inode> nodes;
+    
 
     public FileSystem(int diskBlocks)
     {
