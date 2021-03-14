@@ -123,6 +123,7 @@ public class FileSystem
         int buffSize = buffer.length;
         //If bytes remaining between the current seek pointer and the end of file are less than buffer.length
         while(ftEnt.seekPtr < buffer.length)
+        // while (ftEnt.seekPtr < fsize(ftEnt) && buffSize > 0)
         {
             //need the block number for rawread
             byte[] data = new byte[Disk.blockSize]; // keep track of what was read

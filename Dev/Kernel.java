@@ -195,7 +195,6 @@ public class Kernel
                         myTcb = scheduler.getMyTcb();
                         if(myTcb != null)
                         {
-                          
                           entry = myTcb.getFtEnt(param);
                           if(entry != null)
                             return fs.read(entry, (byte[])args);
