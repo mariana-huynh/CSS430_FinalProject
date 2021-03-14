@@ -195,6 +195,7 @@ public class Kernel
                         myTcb = scheduler.getMyTcb();
                         if(myTcb != null)
                         {
+                          
                           entry = myTcb.getFtEnt(param);
                           if(entry != null)
                             return fs.read(entry, (byte[])args);
@@ -251,31 +252,25 @@ public class Kernel
                     case CLOSE:   // to be implemented in project
                         myTcb = scheduler.getMyTcb();
                         entry = myTcb.getFtEnt(param);
-                        // str = (String[])args;
+                        //str = (String[])args;
                         if(myTcb != null)
                         {
                           if(entry == null || fs.close(entry) == false)
                           {
                             return ERROR;
                           }
-                        //   else
-                        //   {
-                        //     myTcb.getFd(fs.open(str[0], str[1]));                    
-                        //     return OK;
-                        //   }
-
-                          if (myTcb.returnFd (param) != entry)
+                          if(myTcb.returnFd(param) != entry)
                           {
+                            //return myTcb.getFd(fs.open(str[0], str[1]));                    
                             return ERROR;
                           }
-
                           return OK;
-                        }                            
-                        // else
-                        // {
-                        //   return ERROR;
-                        // }
-
+                        }
+                                                   
+                        /*else
+                        {
+                          return ERROR;
+                        }*/
                         return ERROR;
                           
                     case SIZE:    // to be implemented in project
