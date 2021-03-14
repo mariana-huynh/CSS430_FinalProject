@@ -35,13 +35,6 @@ public class FileSystem
 
     boolean close (FileTableEntry ftEnt)
     {
-        // if (ftEnt == null)
-        // {
-        //     return false;
-        // }
-
-        // ftEnt.count--;
-
         return filetable.ffree(ftEnt);
     }
 
@@ -131,13 +124,12 @@ public class FileSystem
         //If bytes remaining between the current seek pointer and the end of file are less than buffer.length
         while(ftEnt.seekPtr < buffer.length)
         {
-
             //need the block number for rawread
             byte[] data = new byte[Disk.blockSize]; // keep track of what was read
 
             //get the block where the ftEnt seek Ptr is at, should be set to 0 for read
             int blockNum = ftEnt.inode.getSeekPtrBlock(ftEnt.seekPtr);
-
+            
             //reads up to buffer.size
             SysLib.rawread(blockNum, buffer);
             int dataRead = ftEnt.seekPtr % Disk.blockSize;

@@ -252,23 +252,32 @@ public class Kernel
                     case CLOSE:   // to be implemented in project
                         myTcb = scheduler.getMyTcb();
                         entry = myTcb.getFtEnt(param);
-                        str = (String[])args;
+                        // str = (String[])args;
                         if(myTcb != null)
                         {
                           if(entry == null || fs.close(entry) == false)
                           {
                             return ERROR;
                           }
-                          else
+                        //   else
+                        //   {
+                        //     myTcb.getFd(fs.open(str[0], str[1]));                    
+                        //     return OK;
+                        //   }
+
+                          if (myTcb.returnFd (param) != entry)
                           {
-                            myTcb.getFd(fs.open(str[0], str[1]));                    
-                            return OK;
+                            return ERROR;
                           }
+
+                          return OK;
                         }                            
-                        else
-                        {
-                          return ERROR;
-                        }
+                        // else
+                        // {
+                        //   return ERROR;
+                        // }
+
+                        return ERROR;
                           
                     case SIZE:    // to be implemented in project
                         myTcb = scheduler.getMyTcb();
