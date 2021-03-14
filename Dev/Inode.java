@@ -113,14 +113,18 @@ public class Inode
         {
             return direct[block];
         }
-        else
+        else if(indirect != -1) //get blockNum at indirect
         {
             //scan the index block, indirect pointer
             byte[] blockData = new byte[Disk.blockSize];
             SysLib.rawread(indirect, blockData);
             int offset = (block - directSize) * 2;
 
-            return SysLib.bytes2int(blockData, offset); //indirect is a short
+            return SysLib.bytes2short(blockData, offset); //indirect is a short
+        }
+        else //blockNum is -1, empty at direct and indirect
+        {
+          return -1;
         }
     }
 
@@ -139,7 +143,7 @@ public class Inode
             indirect = (short) freeBlock;
             return true;
         }
-        else if(indirect < 0)//indirect
+        else 
         {
             //scan the index block, indirect pointer
             byte[] blockData = new byte[Disk.blockSize];
@@ -152,6 +156,10 @@ public class Inode
             //go till the next empty indirect block
             while (indirBlockNum != -1)
             {
+                if(offset > Disk.blockSize) //if offset exceeds disk block size
+                {
+                  return false;
+                }
                 indirBlockNum = SysLib.bytes2short(blockData, offset);
                 offset += 2;
             }
@@ -163,6 +171,6 @@ public class Inode
             return true;
         }
 
-        return true;
+       
     }
 }
