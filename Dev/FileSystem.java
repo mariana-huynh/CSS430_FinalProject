@@ -217,7 +217,8 @@ public class FileSystem
 
             //find out how much more left to read
             int remainingBlocks = Disk.blockSize - dataRead; //remaining blocks to read
-            int remainingData = fsize(ftEnt) - ftEnt.seekPtr; //remaining data left in file
+            
+            sizeWrite = remainingBlocks - ftEnt.seekPtr; //remaining data left in file
 
             System.out.println("fsize(ftEnt): " + fsize(ftEnt));
 
@@ -229,7 +230,7 @@ public class FileSystem
             //if there is left to read on the file
             else
             {
-                sizeWrite = remainingData; //just set it to the remainder of file data
+                sizeWrite = buffSize; //just set it to the remainder of file data
             }
 
             System.out.println("sizeWrite: " + sizeWrite);
