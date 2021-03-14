@@ -35,12 +35,12 @@ public class FileSystem
 
     boolean close (FileTableEntry ftEnt)
     {
-        if (ftEnt == null)
-        {
-            return false;
-        }
+        // if (ftEnt == null)
+        // {
+        //     return false;
+        // }
 
-        ftEnt.count--;
+        // ftEnt.count--;
 
         return filetable.ffree(ftEnt);
     }

@@ -159,7 +159,8 @@ public class FileTable
 
         if (table.removeElement(e))
         {
-            Inode inode = e.inode;
+            // Inode inode = e.inode;
+            Inode inode = new Inode(e.iNumber);
 
             if (inode.flag == READ || inode.flag == WRITE)
             {
