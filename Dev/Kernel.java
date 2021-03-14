@@ -183,17 +183,19 @@ public class Kernel
                                 } catch ( IOException e ) {
                                     System.out.println( e );
                                     return ERROR;
-                                }
+                                  }
                             case STDOUT:
+                                System.out.print((String)args);
+                                return OK;
                             case STDERR:
                                 System.out.println("threadOS: caused read errors");
                                 return ERROR;
                         }
                         //return fs.read(entry, (byte[]) args);
-                        
-                        if(scheduler.getMyTcb() != null)
+                        myTcb = scheduler.getMyTcb();
+                        if(myTcb != null)
                         {
-                          myTcb = scheduler.getMyTcb();
+                          
                           entry = myTcb.getFtEnt(param);
                           if(entry != null)
                             return fs.read(entry, (byte[])args);
@@ -206,15 +208,15 @@ public class Kernel
                                 return ERROR;
                             case STDOUT:
                                 System.out.print( (String)args );
-                                break;
+                                return OK;
                             case STDERR:
                                 System.err.print( (String)args );
-                                break;
+                                return OK;
                         }
-                        
-                        if(scheduler.getMyTcb() != null)
+                        myTcb = scheduler.getMyTcb();
+                        if(myTcb != null)
                         {
-                          myTcb = scheduler.getMyTcb();
+                          
                           entry = myTcb.getFtEnt(param);
                           if(entry != null)
                               return fs.write(entry, (byte[])args);
