@@ -35,6 +35,13 @@ public class FileSystem
 
     boolean close (FileTableEntry ftEnt)
     {
+        if (ftEnt == null)
+        {
+            return false;
+        }
+
+        ftEnt.count--;
+
         return filetable.ffree(ftEnt);
     }
 
@@ -118,47 +125,69 @@ public class FileSystem
         {
             return -1;
         }
-        int sizeRead = 0;
+        
+        int sizeLeft = 0;
         int readTotal = 0;
         int buffSize = buffer.length;
-        //If bytes remaining between the current seek pointer and the end of file are less than buffer.length
-        while(ftEnt.seekPtr < buffer.length)
-        // while (ftEnt.seekPtr < fsize(ftEnt) && buffSize > 0)
+        //can only read to the length of the file on each entry and till the buffer
+        while((ftEnt.seekPtr < fsize(ftEnt)) && buffSize > 0)
         {
-            //need the block number for rawread
-            byte[] data = new byte[Disk.blockSize]; // keep track of what was read
+
 
             //get the block where the ftEnt seek Ptr is at, should be set to 0 for read
             int blockNum = ftEnt.inode.getSeekPtrBlock(ftEnt.seekPtr);
+            System.out.println("BlockNum: " + blockNum);
+             if(blockNum != -1) //if not at direct or indirect in the inode
+             {
+                //need the block number for rawread
+                byte[] data = new byte[Disk.blockSize]; // keep track of what was read
+                //reads up to buffer.size
+                SysLib.rawread(blockNum, data);
+                int dataRead = ftEnt.seekPtr % Disk.blockSize;
+
+                //need to keep track of remaining blocks to be read from disk that will
+                //where data will make up buffer
+                int remainingBlocks = Disk.blockSize - dataRead; //remaining blocks to read
+                int remainingData = fsize(ftEnt) - ftEnt.seekPtr; //remaining data left in file
+
+                //if there less remaining block data than file data 
+                if(remainingBlocks < remainingData)
+                {
+                    sizeLeft = remainingBlocks; //then we still need to read remaining blocks
+                    if(sizeLeft < buffSize) //if the remaining blocks are less than what's remaining in the buffer
+                    {
+                      sizeLeft = buffSize; //then the sizeLeft would be what remains of buffSize
+                    }
+                               
+                
+                }
+                else //file data left
+                {
+                   sizeLeft = remainingData;
+                   if(sizeLeft < buffSize) //if the remaining data are less than what's remaining in the buffer
+                   {
+                    sizeLeft = buffSize; //then the sizeLeft would be what remains of buffSize
+                   }
+                }
+          
+           
+           
+                System.out.println("Size Read:" + sizeLeft);
+                //copy data read
+                System.arraycopy(data, dataRead, buffer, readTotal, sizeLeft);
             
-            //reads up to buffer.size
-            SysLib.rawread(blockNum, buffer);
-            int dataRead = ftEnt.seekPtr % Disk.blockSize;
+                readTotal += sizeLeft; //update what was currently read
 
-            //need to keep track of remaining blocks to be read from disk that will
-            //where data will make up buffer
-            int remainingBlocks = Disk.blockSize - dataRead; //remaining blocks to read
-            int remainingData = fsize(ftEnt) - ftEnt.seekPtr; //remaining data left in file
+                //update seekPtr
+                ftEnt.seekPtr += sizeLeft; //just read so can be updated
 
-            //if there is still blocks to be read, set left to read to remaining blocks
-            if(remainingBlocks < buffSize)
-            {
-                sizeRead = remainingBlocks; //size left to read
+                buffSize -= sizeLeft; //subtract what was read from buffer size
             }
-            //if there is left to read on the file
-            else
-            {
-                sizeRead = remainingData; //just set it to the remainder of file data
-            }
-            //copy data read
-            System.arraycopy(data, dataRead, buffer, readTotal, sizeRead);
-            readTotal += sizeRead; //update what was currently read
+               
+             
 
-            //update seekPtr
-            ftEnt.seekPtr += sizeRead; //just read so can be updated
-
-            buffSize -= sizeRead; //subtract what was read from buffer size
         }
+        System.out.println("Size: " + readTotal);
 
         return readTotal;
     }
@@ -190,22 +219,37 @@ public class FileSystem
 
             //get the block where the ftEnt seek Ptr is at
             //need the block number for rawwrite
-
+            
+            // -1 indirect, direct if it's an empty inode
             int blockNum = ftEnt.inode.getSeekPtrBlock(ftEnt.seekPtr); //get block number where seekPtr is at
+            System.out.print("BlockNum: " + blockNum);
+            
+            //get the free block, set it to inode on ftEnt
+            if(blockNum == -1)
+            {
+                 // System.out.println("adter getSeekPtrBlock() in write()");
 
-            // System.out.println("adter getSeekPtrBlock() in write()");
+                int availableBlock = superblock.getFreeBlock(); //get available block to write to
 
-            int availableBlock = superblock.getFreeBlock(); //get available block to write to
+                // System.out.println("after getFreeBlock() in write()");
+                if(ftEnt.inode.setBlock(availableBlock) == false) //exceeds the disk blockSize
+                { 
+                  superblock.returnBlock(availableBlock);
+                  return -1;
+                  
+                }
+                
 
-            // System.out.println("after getFreeBlock() in write()");
+                 //set available block
 
-            ftEnt.inode.setBlock(availableBlock); //set available block
+                // System.out.println("after setBlock() in write()");
 
-            // System.out.println("after setBlock() in write()");
-
-            //read to figure out where to write to
+                blockNum = ftEnt.inode.getSeekPtrBlock(ftEnt.seekPtr); //get block number where seekPtr is at
+            
+            }
             byte[] data = new byte[Disk.blockSize];
             SysLib.rawread(blockNum, data); //get data at current block
+         
             int dataRead = ftEnt.seekPtr % Disk.blockSize; //get data read
 
             //find out how much more left to read
@@ -236,9 +280,17 @@ public class FileSystem
             ftEnt.seekPtr += sizeWrite; //update seekPtr
 
             buffSize -= sizeWrite;
+            
+             //if the seekPtr exceeds the file size on the entry
+            if(ftEnt.seekPtr > fsize(ftEnt))
+            {
+              ftEnt.inode.length = ftEnt.seekPtr; 
+          
+            }
         }
 
         System.out.println("after while  in write()");
+        ftEnt.inode.toDisk(ftEnt.iNumber); //write to the disk
 
         return writtenTotal;
     }
