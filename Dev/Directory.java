@@ -138,6 +138,8 @@ public class Directory
 
     public short namei(String filename)
     {
+        System.out.println("got to namei() in Directory.");
+
         //find the file name in fNames that matches filename and return the index?
         for(int i = 0; i < fsize.length; i++) // loop through each file size
         {
@@ -145,18 +147,25 @@ public class Directory
             {
                 //get the fName string and see if it equals filename
                 //sets string to the chars between where fname is to the length
-                String fname = new String(fNames[i], 0, fsize[i]);
-                if(fname.equals(filename))
+                // String fname = new String(fNames[i], i, fsize[i] - 1);
+                StringBuilder sb = new StringBuilder();
+
+                for (int j = 0; j < fsize[i]; j++)
                 {
-                    return (short)i;
+                    sb.append(fNames[i][j]);
                 }
 
+                String fname = sb.toString();
+
+                if(fname.equals(filename))
+                {
+                    System.out.println("i: " + (short) i);
+                    return (short)i;
+                }
             }
 
         }
+
         return -1;
-
     }
-
-
 }

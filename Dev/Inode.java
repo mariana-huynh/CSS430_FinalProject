@@ -6,10 +6,9 @@ public class Inode
 
     public int length; //file size in bytes
     public short count; //# of file table entries pointing to this
-    public short flag; // 0 = unused, 1 = used
+    public short flag; // 0 = unused, 1 = used, ... 
     public short direct[] = new short[directSize]; // pointers to the first 12 blocks
     public short indirect;
-
 
     Inode()
     {
@@ -22,13 +21,14 @@ public class Inode
         }
         indirect = -1;
     }
+
     Inode(short iNumber)
     {
         //retrieving inode from disk
         //first: get the block number where the inode is on the disk there are 16 inodes on the disk
 
-        
-        int blockNum = (16 / (iNumber + 1));
+        // int blockNum = ((iNumber + 1) / 16);
+        int blockNum = 1 + iNumber / 16;
 
         // int blockNum = (16 / iNumber) + 1;
 
@@ -38,15 +38,19 @@ public class Inode
 
         //Then write back it's contents to disk immediately
         //info to be written back/ updated length, count, flag,
-        int offset = iNumber * 32; //16 inodes per block and 32 bytes per block
+        // int offset = iNumber * 32; //16 inodes per block and 32 bytes per block
+        int offset = (iNumber % 16) * 32; //16 inodes per block and 32 bytes per block
         length = SysLib.bytes2int(nodeInfo, offset);
         offset += 4; //int is 4 bytes
+        System.out.println("after offset");
 
         count = SysLib.bytes2short(nodeInfo, offset);
         offset += 2; //short is 2 bytes
+        System.out.println("after count");
 
         flag = SysLib.bytes2short(nodeInfo, offset);
         offset += 2; //short is 2 bytes
+        System.out.println("after flag: " + flag);
 
         for(int i = 0; i < directSize; i++)
         {
@@ -54,16 +58,16 @@ public class Inode
             direct[i] = SysLib.bytes2short(nodeInfo, offset);
             offset += 2;
         }
+
         //update indirect
         indirect = SysLib.bytes2short(nodeInfo, offset);
-
-
     }
+
     int toDisk(short iNumber)
     {
         //write from iNumber block to disk?
         //get the block number that corresponds the the iNumber
-        int blockNum = (16 / iNumber) + 1;
+        int blockNum = 1 + iNumber / 16;
 
         //Hold Inode info
         byte[] nodeData = new byte[Disk.blockSize];
@@ -94,14 +98,13 @@ public class Inode
         SysLib.rawwrite(blockNum, nodeData);
 
         return 0;
-
-
     }
+
     int getBlockNumber(short iNumber)
     {
         return (16 / iNumber) + 1;
-
     }
+
     int getSeekPtrBlock(int seek)
     {
         int block = seek / Disk.blockSize;
@@ -119,9 +122,8 @@ public class Inode
 
             return SysLib.bytes2int(blockData, offset); //indirect is a short
         }
-
-
     }
+
     //update the block, used with write in FS
     boolean setBlock(int freeBlock)
     {
@@ -136,7 +138,6 @@ public class Inode
         {
             indirect = (short) freeBlock;
             return true;
-
         }
         else if(indirect < 0)//indirect
         {
@@ -153,7 +154,6 @@ public class Inode
             {
                 indirBlockNum = SysLib.bytes2short(blockData, offset);
                 offset += 2;
-
             }
 
             //get the free block stopped at

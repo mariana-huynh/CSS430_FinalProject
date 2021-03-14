@@ -236,12 +236,13 @@ public class Kernel
                         cache.flush( );
                         return OK;
                     case OPEN:    // to be implemented in project
-                        str = (String[])args;
-                        if(scheduler.getMyTcb() != null)
+                        // str = (String[])args;
+                        if((myTcb = scheduler.getMyTcb()) != null)
                         {
-                          myTcb = scheduler.getMyTcb();
-                          myTcb.getFd(fs.open(str[0], str[1]));
-                          return OK;
+                          String[] s = (String[]) args;
+                          // myTcb = scheduler.getMyTcb();
+                          return myTcb.getFd(fs.open(s[0], s[1]));
+                          // return OK;
                         }
                         else
                         {

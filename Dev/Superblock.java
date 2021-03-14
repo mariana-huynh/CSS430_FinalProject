@@ -44,6 +44,8 @@ public class SuperBlock
         // sync: write superblock to disk (the three values) -> call at end
         // erase current inodes and files and allocate new inodes
 
+        System.out.println("got to format() in SuperBlock");
+
         byte[] blockData = new byte[Disk.blockSize];
 
         inodeBlocks = numInodeBlocks;
@@ -51,6 +53,8 @@ public class SuperBlock
         for (int i = 0; i < inodeBlocks; i++)
         {
             Inode newInode = new Inode();
+            // System.out.println("after create new Inode.");
+
             newInode.flag = 0;  // UNUSED
             newInode.toDisk((short) i);
         }

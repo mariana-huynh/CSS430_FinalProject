@@ -31,30 +31,65 @@ public class FileTable
 
         while (true)
         {
+            System.out.println("Start of while(true) in falloc.");
+
             // allocate/retrieve and register the corresponding inode using dir
             iNumber = (filename.equals("/") ? 0 : dir.namei(filename));   
+
+            System.out.println("iNumber in falloc: " + iNumber);
 
             // if file exists
             if (iNumber >= 0)
             {
+                System.out.println("inside if iNumber >= 0 in falloc.");
+
                 inode = new Inode(iNumber);
+
+                System.out.println("After create new Inode in falloc.");
 
                 if (mode.compareTo("r") == 0)
                 {
-                    // if flag == read
-                    // talk to charlie: Inode.java should have consts for flags? Or leave as is? Leave as is.
-                    if (inode.flag == READ)    
-                    {
-                        break;   // no need to wait
-                    }
+                    System.out.println("Inside if(r) in falloc.");
 
-                    // should this be here?
+                    System.out.println("flag inside falloc: " + inode.flag);
+
+                    // // if flag == read
+                    // // talk to charlie: Inode.java should have consts for flags? Or leave as is? Leave as is.
+                    // if (inode.flag == READ)    
+                    // {
+                    //     System.out.println("Inside if (flag == READ) in falloc.");
+
+                    //     break;   // no need to wait
+                    // }
+
+                    // // should this be here?
                     // try 
                     // {
                     //     wait();
                     // }
                     // catch (InterruptedException e)
                     // {}
+
+                    if (inode.flag == UNUSED || inode.flag == USED)
+                    {
+                        System.out.println("inside if unused or used in falloc.");
+
+                        inode.flag = USED;
+                        break;
+                    }
+                    else
+                    {
+                        System.out.println("inside else unused or used in falloc.");
+
+                        try 
+                        {
+                            wait();
+                        }
+                        catch (InterruptedException e)
+                        {}
+
+                        continue;
+                    }
                 }
                 else
                 {
@@ -91,19 +126,25 @@ public class FileTable
             }
             else if (mode.compareTo("r") != 0)
             {
+                System.out.println("got to else if in falloc.");
+
                 iNumber = dir.ialloc(filename);
                 inode = new Inode(iNumber);
-                inode.flag = READ;
+                inode.flag = WRITE;
                 break;
             }
-            else
+            else  // the system want to read file that doesn't exist
             {
                 return null;
             }
         }
 
         inode.count++;
+
+        System.out.println("before toDisk in falloc.");
         inode.toDisk(iNumber);
+        System.out.println("after toDisk in falloc.");
+
         FileTableEntry e = new FileTableEntry(inode, iNumber, mode);
         table.addElement(e);
         return e;
