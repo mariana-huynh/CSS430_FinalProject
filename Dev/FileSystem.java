@@ -35,12 +35,12 @@ public class FileSystem
 
     boolean close (FileTableEntry ftEnt)
     {
-        if (ftEnt == null)
-        {
-            return false;
-        }
+        // if (ftEnt == null)
+        // {
+        //     return false;
+        // }
 
-        ftEnt.count--;
+        // ftEnt.count--;
 
         return filetable.ffree(ftEnt);
     }
@@ -132,13 +132,11 @@ public class FileSystem
         //can only read to the length of the file on each entry and till the buffer
         while((ftEnt.seekPtr < fsize(ftEnt)) && buffSize > 0)
         {
-
-
             //get the block where the ftEnt seek Ptr is at, should be set to 0 for read
             int blockNum = ftEnt.inode.getSeekPtrBlock(ftEnt.seekPtr);
             System.out.println("BlockNum: " + blockNum);
-             if(blockNum != -1) //if not at direct or indirect in the inode
-             {
+            if(blockNum != -1) //if not at direct or indirect in the inode
+            {
                 //need the block number for rawread
                 byte[] data = new byte[Disk.blockSize]; // keep track of what was read
                 //reads up to buffer.size
@@ -158,8 +156,6 @@ public class FileSystem
                     {
                       sizeLeft = buffSize; //then the sizeLeft would be what remains of buffSize
                     }
-                               
-                
                 }
                 else //file data left
                 {
@@ -169,9 +165,7 @@ public class FileSystem
                     sizeLeft = buffSize; //then the sizeLeft would be what remains of buffSize
                    }
                 }
-          
-           
-           
+
                 System.out.println("Size Read:" + sizeLeft);
                 //copy data read
                 System.arraycopy(data, dataRead, buffer, readTotal, sizeLeft);
@@ -183,10 +177,8 @@ public class FileSystem
 
                 buffSize -= sizeLeft; //subtract what was read from buffer size
             }
-               
-             
-
         }
+
         System.out.println("Size: " + readTotal);
 
         return readTotal;
@@ -238,15 +230,14 @@ public class FileSystem
                   return -1;
                   
                 }
-                
 
-                 //set available block
+                //set available block
 
                 // System.out.println("after setBlock() in write()");
 
                 blockNum = ftEnt.inode.getSeekPtrBlock(ftEnt.seekPtr); //get block number where seekPtr is at
-            
             }
+
             byte[] data = new byte[Disk.blockSize];
             SysLib.rawread(blockNum, data); //get data at current block
          
