@@ -1,165 +1,367 @@
-import java.util.*; // SysLib_org.java
+/*
+ * This is the same file as Kernel_org.java
+ */
+import java.io.BufferedReader;
 
-public class SysLib {
-    public static int exec( String args[] ) {
-        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.EXEC, 0, args );
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+
+public class Kernel
+{
+    // Interrupt requests
+    public final static int INTERRUPT_SOFTWARE = 1;  // System calls
+    public final static int INTERRUPT_DISK     = 2;  // Disk interrupts
+    public final static int INTERRUPT_IO       = 3;  // Other I/O interrupts
+
+    // System calls
+    public final static int BOOT    =  0; // SysLib.boot( )
+    public final static int EXEC    =  1; // SysLib.exec(String args[])
+    public final static int WAIT    =  2; // SysLib.join( )
+    public final static int EXIT    =  3; // SysLib.exit( )
+    public final static int SLEEP   =  4; // SysLib.sleep(int milliseconds)
+    public final static int RAWREAD =  5; // SysLib.rawread(int blk, byte b[])
+    public final static int RAWWRITE=  6; // SysLib.rawwrite(int blk, byte b[])
+    public final static int SYNC    =  7; // SysLib.sync( )
+    public final static int READ    =  8; // SysLib.cin( )
+    public final static int WRITE   =  9; // SysLib.cout( ) and SysLib.cerr( )
+
+    // System calls to be added in Assignment 4
+    public final static int CREAD   = 10; // SysLib.cread(int blk, byte b[])
+    public final static int CWRITE  = 11; // SysLib.cwrite(int blk, byte b[])
+    public final static int CSYNC   = 12; // SysLib.csync( )
+    public final static int CFLUSH  = 13; // SysLib.cflush( )
+
+    // System calls to be added in Project
+    public final static int OPEN    = 14; // SysLib.open( String fileName )
+    public final static int CLOSE   = 15; // SysLib.close( int fd )
+    public final static int SIZE    = 16; // SysLib.size( int fd )
+    public final static int SEEK    = 17; // SysLib.seek( int fd, int offest,
+    //              int whence )
+    public final static int FORMAT  = 18; // SysLib.format( int files )
+    public final static int DELETE  = 19; // SysLib.delete( String fileName )
+
+    // Predefined file descriptors
+    public final static int STDIN  = 0;
+    public final static int STDOUT = 1;
+    public final static int STDERR = 2;
+
+    // Return values
+    public final static int OK = 0;
+    public final static int ERROR = -1;
+
+    // System thread references
+    private static Scheduler scheduler;
+    private static Disk disk;
+    private static Cache cache;
+
+    // Synchronized Queues
+    private static SyncQueue waitQueue;  // for threads to wait for their child
+    private static SyncQueue ioQueue;    // I/O queue
+    
+     // my code
+// instantiate file system
+    private static FileSystem fs;
+// end my code
+
+
+    private final static int COND_DISK_REQ = 1; // wait condition
+    private final static int COND_DISK_FIN = 2; // wait condition
+
+   
+    // Standard input
+    private static BufferedReader input
+            = new BufferedReader( new InputStreamReader( System.in ) );
+
+    // The heart of Kernel
+    public static int interrupt( int irq, int cmd, int param, Object args ) {
+        TCB myTcb;
+        FileTableEntry entry;
+        String[] str;
+
+        switch( irq ) {
+            case INTERRUPT_SOFTWARE: // System calls
+                switch( cmd ) {
+                    case BOOT:
+                        // instantiate and start a scheduler
+                        scheduler = new Scheduler( );
+                        scheduler.start( );
+
+                        // instantiate and start a disk
+                        disk = new Disk( 1000 );
+                        disk.start( );
+
+                        // instantiate a cache memory
+                        cache = new Cache( disk.blockSize, 10 );
+
+                        // instantiate synchronized queues
+                        ioQueue = new SyncQueue( );
+                        waitQueue = new SyncQueue( scheduler.getMaxThreads( ) );
+
+                        // my code
+                        // instantiate a file system
+                        fs = new FileSystem(1000);
+                        // end my code
+
+                        return OK;
+                    case EXEC:
+                        return sysExec( ( String[] )args );
+                    case WAIT:
+                        if ( ( myTcb = scheduler.getMyTcb( ) ) != null ) {
+                            int myTid = myTcb.getTid( ); // get my thread ID
+                            return waitQueue.enqueueAndSleep( myTid ); //wait on my tid
+                            // woken up by my child thread
+                        }
+                        return ERROR;
+                    case EXIT:
+                        if ( ( myTcb = scheduler.getMyTcb( ) ) != null ) {
+                            int myPid = myTcb.getPid( ); // get my parent ID
+                            int myTid = myTcb.getTid( ); // get my ID
+                            if ( myPid != -1 ) {
+                                // wake up a thread waiting on my parent ID
+                                waitQueue.dequeueAndWakeup( myPid, myTid );
+                                // I'm terminated!
+                                scheduler.deleteThread( );
+                                return OK;
+                            }
+                        }
+                        return ERROR;
+                    case SLEEP:   // sleep a given period of milliseconds
+                        scheduler.sleepThread( param ); // param = milliseconds
+                        return OK;
+                    case RAWREAD: // read a block of data from disk
+                        while ( disk.read( param, ( byte[] )args ) == false )
+                            ioQueue.enqueueAndSleep( COND_DISK_REQ );
+                        while ( disk.testAndResetReady( ) == false )
+                            ioQueue.enqueueAndSleep( COND_DISK_FIN );
+
+                        // it's possible that a thread waiting to make a request was released by the disk,
+                        // but then promptly looped back, found the buffer wasn't available for sending (bufferReady == true)
+                        // and then went back to sleep
+
+                        // now you can access data in buffer
+                        return OK;
+                    case RAWWRITE: // write a block of data to disk
+                        while ( disk.write( param, ( byte[] )args ) == false )
+                            ioQueue.enqueueAndSleep( COND_DISK_REQ );
+                        while ( disk.testAndResetReady( ) == false )
+                            ioQueue.enqueueAndSleep( COND_DISK_FIN );
+                        // it's possible that a thread waiting to make a request was released by the disk,
+                        // but then promptly looped back, found the buffer wasn't available for sending (bufferReady == true)
+                        // and then went back to sleep
+
+                        return OK;
+                    case SYNC:     // synchronize disk data to a real file
+                        fs.sync();
+                        while ( disk.sync( ) == false )
+                            ioQueue.enqueueAndSleep( COND_DISK_REQ );
+                        while ( disk.testAndResetReady( ) == false )
+                            ioQueue.enqueueAndSleep( COND_DISK_FIN );
+
+                        // it's possible that a thread waiting to make a request was released by the disk,
+                        // but then promptly looped back, found the buffer wasn't available for sending (bufferReady == true)
+                        // and then went back to sleep
+
+                        return OK;
+                    case READ:
+                        switch ( param ) {
+                            case STDIN:
+                                try {
+                                    String s = input.readLine(); // read a keyboard input
+                                    if ( s == null ) {
+                                        return ERROR;
+                                    }
+                                    // prepare a read buffer
+                                    StringBuffer buf = ( StringBuffer )args;
+
+                                    // append the keyboard intput to this read buffer
+                                    buf.append( s );
+
+                                    // return the number of chars read from keyboard
+                                    return s.length( );
+                                } catch ( IOException e ) {
+                                    System.out.println( e );
+                                    return ERROR;
+                                }
+                            case STDOUT:
+                            case STDERR:
+                                System.out.println("threadOS: caused read errors");
+                                return ERROR;
+                        }
+                        //return fs.read(entry, (byte[]) args);
+                        
+                        if(scheduler.getMyTcb() != null)
+                        {
+                          myTcb = scheduler.getMyTcb();
+                          entry = myTcb.getFtEnt(param);
+                          if(entry != null)
+                            return fs.read(entry, (byte[])args);
+                        }
+                        return ERROR;
+                    case WRITE:
+                        switch ( param ) {
+                            case STDIN:
+                                System.out.println("threadOS: cannot write to System.in");
+                                return ERROR;
+                            case STDOUT:
+                                System.out.print( (String)args );
+                                break;
+                            case STDERR:
+                                System.err.print( (String)args );
+                                break;
+                        }
+                        
+                        if(scheduler.getMyTcb() != null)
+                        {
+                          myTcb = scheduler.getMyTcb();
+                          entry = myTcb.getFtEnt(param);
+                          if(entry != null)
+                              return fs.write(entry, (byte[])args);
+                          
+                        }
+                        return ERROR;
+                        //return fs.write(entry, (byte[])args);                    
+                                              
+                    case CREAD:   // to be implemented in assignment 4
+                        return cache.read( param, ( byte[] )args ) ? OK : ERROR;
+                    case CWRITE:  // to be implemented in assignment 4
+                        return cache.write( param, ( byte[] )args ) ? OK : ERROR;
+                    case CSYNC:   // to be implemented in assignment 4
+                        cache.sync( );
+                        return OK;
+                    case CFLUSH:  // to be implemented in assignment 4
+                        cache.flush( );
+                        return OK;
+                    case OPEN:    // to be implemented in project
+                        str = (String[])args;
+                        if(scheduler.getMyTcb() != null)
+                        {
+                          myTcb = scheduler.getMyTcb();
+                          myTcb.getFd(fs.open(str[0], str[1]));
+                          return OK;
+                        }
+                        else
+                        {
+                          return ERROR;
+                        }
+                          
+                    case CLOSE:   // to be implemented in project
+                        myTcb = scheduler.getMyTcb();
+                        entry = myTcb.getFtEnt(param);
+                        str = (String[])args;
+                        if(myTcb != null)
+                        {
+                          if(entry == null || fs.close(entry) == false)
+                          {
+                            return ERROR;
+                          }
+                          else
+                          {
+                            myTcb.getFd(fs.open(str[0], str[1]));                    
+                            return OK;
+                          }
+                        }                            
+                        else
+                        {
+                          return ERROR;
+                        }
+                          
+                    case SIZE:    // to be implemented in project
+                        myTcb = scheduler.getMyTcb();
+                        entry = myTcb.getFtEnt(param);
+                        fs.fsize(entry);
+                        return OK;
+                    case SEEK:    // to be implemented in project
+                        int[] ow = (int[])args;
+                        myTcb = scheduler.getMyTcb();
+                        entry = myTcb.getFtEnt(param);
+                        int r;
+                        if(entry != null)
+                        {
+                          r = fs.seek(entry, ow[0], ow[1]);
+                          if(r == -1)
+                            return ERROR;
+                          return OK;
+                            
+                        }
+                          
+                        return ERROR;
+                    case FORMAT:  // to be implemented in project
+                        fs.format(param);
+                        return OK;
+                    case DELETE:  // to be implemented in project
+                        if(fs.delete((String)args))
+                            return OK;
+                        return ERROR;
+                }
+                return ERROR;
+            case INTERRUPT_DISK: // Disk interrupts
+                // wake up the thread waiting for a service completion
+                ioQueue.dequeueAndWakeup( COND_DISK_FIN );
+
+                // wake up the thread waiting for a request acceptance
+                ioQueue.dequeueAndWakeup(COND_DISK_REQ);
+
+                return OK;
+            case INTERRUPT_IO:   // other I/O interrupts (not implemented)
+                return OK;
+        }
+        return OK;
     }
 
-    public static int join( ) {
-        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.WAIT, 0, null );
-    }
+    // Spawning a new thread
+    private static int sysExec( String args[] ) {
+        String thrName = args[0]; // args[0] has a thread name
+        Object thrObj = null;
 
-    public static int boot( ) {
-	return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.BOOT, 0, null );
-    }
+        try {
+            //get the user thread class from its name
+            Class thrClass = Class.forName( thrName );
+            if ( args.length == 1 ) // no arguments
+                thrObj = thrClass.newInstance( ); // instantiate this class obj
+            else {                  // some arguments
+                // copy all arguments into thrArgs[] and make a new constructor
+                // argument object from thrArgs[]
+                String thrArgs[] = new String[ args.length - 1 ];
+                for ( int i = 1; i < args.length; i++ )
+                    thrArgs[i - 1] = args[i];
+                Object[] constructorArgs = new Object[] { thrArgs };
 
-    public static int exit( ) {
-	return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.EXIT, 0, null );
-    }
+                // locate this class object's constructors
+                Constructor thrConst
+                        = thrClass.getConstructor( new Class[] {String[].class} );
 
-    public static int sleep( int milliseconds ) {
-	return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.SLEEP, milliseconds, null );
-    }
+                // instantiate this class object by calling this constructor
+                // with arguments
+                thrObj = thrConst.newInstance( constructorArgs );
+            }
+            // instantiate a new thread of this object
+            Thread t = new Thread( (Runnable)thrObj );
 
-    public static int disk( ) {
-	return Kernel.interrupt( Kernel.INTERRUPT_DISK,
-				 0, 0, null );
-    }
-
-    public static int cin( StringBuffer s ) {
-        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.READ, 0, s );
-    }
-
-    public static int cout( String s ) {
-        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.WRITE, 1, s );
-    }
-
-    public static int cerr( String s ) {
-        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.WRITE, 2, s );
-    }
-
-    public static int rawread( int blkNumber, byte[] b ) {
-        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.RAWREAD, blkNumber, b );
-    }
-
-    public static int rawwrite( int blkNumber, byte[] b ) {
-        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.RAWWRITE, blkNumber, b );
-    }
-
-    public static int sync( ) {
-        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.SYNC, 0, null );
-    }
-
-    public static int cread( int blkNumber, byte[] b ) {
-        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.CREAD, blkNumber, b );
-    }
-
-    public static int cwrite( int blkNumber, byte[] b ) {
-        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.CWRITE, blkNumber, b );
-    }
-
-    public static int flush( ) {
-        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.CFLUSH, 0, null );
-    }
-
-    public static int csync( ) {
-        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
-				 Kernel.CSYNC, 0, null );
-    }
-
-    public static String[] stringToArgs( String s ) {
-	StringTokenizer token = new StringTokenizer( s," " );
-	String[] progArgs = new String[ token.countTokens( ) ];
-	for ( int i = 0; token.hasMoreTokens( ); i++ ) {
-	    progArgs[i] = token.nextToken( );
-	}
-	return progArgs;
-    }
-
-    public static void short2bytes( short s, byte[] b, int offset ) {
-	b[offset] = (byte)( s >> 8 );
-	b[offset + 1] = (byte)s;
-    }
-
-    public static short bytes2short( byte[] b, int offset ) {
-	short s = 0;
-        s += b[offset] & 0xff;
-	s <<= 8;
-        s += b[offset + 1] & 0xff;
-	return s;
-    }
-
-    public static void int2bytes( int i, byte[] b, int offset ) {
-	b[offset] = (byte)( i >> 24 );
-	b[offset + 1] = (byte)( i >> 16 );
-	b[offset + 2] = (byte)( i >> 8 );
-	b[offset + 3] = (byte)i;
-    }
-
-    public static int bytes2int( byte[] b, int offset ) {
-	int n = ((b[offset] & 0xff) << 24) + ((b[offset+1] & 0xff) << 16) +
-	        ((b[offset+2] & 0xff) << 8) + (b[offset+3] & 0xff);
-	return n;
-    }
-
-    // my code
-    public static int format (int files)
-    {
-        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.FORMAT, files, null);
-    }
-
-    public static int open (String filename, String mode)
-    {
-        String[] params = new String[2];
-        params[0] = filename;
-        params[1] = mode;
-        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.OPEN, 0, params);
-    }
-
-    public static int read (int fd, byte[] buffer)
-    {
-        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.READ, fd, buffer);
-    }
-
-    public static int write (int fd, byte[] buffer)
-    {
-        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.WRITE, fd, buffer);
-    }
-
-    public static int seek (int fd, int offset, int whence)
-    {
-        int[] params = new int[2];
-        params[0] = offset;
-        params[1] = whence;
-        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.SEEK, fd, params);
-    }
-
-    public static int close (int fd)
-    {
-        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.CLOSE, fd, null);
-    }
-
-    public static int delete (String filename)
-    {
-        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.DELETE, 0, filename);
-    }
-
-    public static int fsize (int fd)
-    {
-        return Kernel.interrupt(Kernel.INTERRUPT_SOFTWARE, Kernel.SIZE, fd, null);
+            // add this thread into scheduler's circular list.
+            TCB newTcb = scheduler.addThread( t );
+            return ( newTcb != null ) ? newTcb.getTid( ) : ERROR;
+        }
+        catch ( ClassNotFoundException e ) {
+            System.out.println( e );
+            return ERROR;
+        }
+        catch ( NoSuchMethodException e ) {
+            System.out.println( e );
+            return ERROR;
+        }
+        catch ( InstantiationException e ) {
+            System.out.println( e );
+            return ERROR;
+        }
+        catch ( IllegalAccessException e ) {
+            System.out.println( e );
+            return ERROR;
+        }
+        catch ( InvocationTargetException e ) {
+            System.out.println( e );
+            return ERROR;
+        }
     }
 }
