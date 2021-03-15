@@ -42,15 +42,15 @@ public class Inode
         int offset = (iNumber % 16) * 32; //16 inodes per block and 32 bytes per block
         length = SysLib.bytes2int(nodeInfo, offset);
         offset += 4; //int is 4 bytes
-        System.out.println("after offset");
+        // System.out.println("after offset: length: " + length);
 
         count = SysLib.bytes2short(nodeInfo, offset);
         offset += 2; //short is 2 bytes
-        System.out.println("after count");
+        // System.out.println("after count");
 
         flag = SysLib.bytes2short(nodeInfo, offset);
         offset += 2; //short is 2 bytes
-        System.out.println("after flag: " + flag);
+        // System.out.println("after flag: " + flag);
 
         for(int i = 0; i < directSize; i++)
         {
@@ -71,9 +71,11 @@ public class Inode
 
         //Hold Inode info
         byte[] nodeData = new byte[Disk.blockSize];
-        int offset = 0;
+        // int offset = 0;
+        int offset = (iNumber % 16) * 32;
 
         //get this inode data and convert to bytes
+        // System.out.println("length in toDisk: " + length);
         SysLib.int2bytes(length, nodeData, offset);
         offset += 4; //int is 4 bytes
 
@@ -86,13 +88,13 @@ public class Inode
         for(int i = 0; i < directSize; i++)
         {
             //update direct
-            // direct[i] = SysLib.short2bytes(nodeData, offset);
-            direct[i] = SysLib.bytes2short(nodeData, offset);
+            SysLib.short2bytes(direct[i], nodeData, offset);
+            // direct[i] = SysLib.bytes2short(nodeData, offset);
             offset += 2;
         }
         //covert indirect
-        // indirect = SysLib.short2bytes(nodeData, offset);
-        indirect = SysLib.bytes2short(nodeData, offset);
+        SysLib.short2bytes(indirect, nodeData, offset);
+        // indirect = SysLib.bytes2short(nodeData, offset);
 
         //write to disk to the length of nodeData
         SysLib.rawwrite(blockNum, nodeData);

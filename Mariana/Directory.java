@@ -27,34 +27,32 @@ public class Directory
         //assumes data[] received directory information from disk
         //initializes the Directory instance with this data[]
 
-
         int offset = 0;
         //convert byte array
         for(int i = 0; i < fsize.length; i++)
         {
             //use the SysLib bytesToInt
-            SysLib.bytes2int(data, offset);
+            fsize[i] = SysLib.bytes2int(data, offset);
+            // SysLib.bytes2int(data, offset);
             offset += 4;
 
         }
         //populate the directory
-        for(int j = 0; j < fNames.length; j++)
+        for(int j = 0; j < fsize.length; j++)
         {
             //each file name is 60 bytes
             //gets the name
             String fName = new String(data, offset, maxChars * 2);
             //get the characters
+            System.out.println("fsize[j]: " + fsize[j]);
+            System.out.println("fNames[j]: " + fNames[j]);
             fName.getChars(0, fsize[j], fNames[j], 0);
             //update the offset
 
             offset += maxChars*2;
-
         }
 
-
-
         return 0;
-
     }
 
     public byte[] directoryToBytes()
@@ -75,8 +73,9 @@ public class Directory
         int offset = 0;
         for(int i = 0; i < fsize.length; i++)
         {
-            int num = fsize[i];
-            SysLib.int2bytes(num, data, offset);
+            // int num = fsize[i];
+            // fsize[i] = SysLib.bytes2int(data, offset);
+            SysLib.int2bytes(fsize[i], data, offset);
             offset += 4; //shift over 4 bytes because num is converted into 4 bytes
         }
 
@@ -115,10 +114,10 @@ public class Directory
                 }
                 fsize[i] = filename.length();
 
-
+                return (short) i;
             }
         }
-        return 0;
+        return -1;
     }
 
     public boolean ifree(short iNumber)

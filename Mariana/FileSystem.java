@@ -22,26 +22,20 @@ public class FileSystem
         FileTableEntry dirEnt = open("/", "r");
         System.out.println("After open() in FileSystem constructor.");
 
-
         int dirSize = fsize(dirEnt);
         if(dirSize > 0)
         {
             byte[] dirData = new byte[dirSize];
+            System.out.println("dirSize: " + dirSize);
             read(dirEnt, dirData);
             directory.bytesToDirectory(dirData);
         }
         close(dirEnt);
+        System.out.println("at end of filesystem constructor");
     }
 
     boolean close (FileTableEntry ftEnt)
     {
-        // if (ftEnt == null)
-        // {
-        //     return false;
-        // }
-
-        // ftEnt.count--;
-
         return filetable.ffree(ftEnt);
     }
 
@@ -49,8 +43,8 @@ public class FileSystem
     {
         FileTableEntry tempFTE = open("/", "w");   // open the fte of the current working directory
         byte[] dirData = directory.directoryToBytes();  // translate directory data to bytes
-        write (tempFTE, dirData);   // write back to disk all data from directory
-        close (tempFTE);   // close the fte when you are done
+        write(tempFTE, dirData);   // write back to disk all data from directory
+        close(tempFTE);   // close the fte when you are done
         superblock.sync();   
     }
 
@@ -90,7 +84,7 @@ public class FileSystem
             return null;
         }
         
-        if(fileEntry.mode == "w")
+        if(fileEntry.mode.compareTo("w") == 0)
         {
             deallocAllBlocks(fileEntry);
             // return null;
@@ -115,26 +109,45 @@ public class FileSystem
      */
     int read(FileTableEntry ftEnt, byte[] buffer)
     {
+        System.out.println("inside of read");
+
         //check if buffer is empty
         if(buffer == null || ftEnt == null)
         {
             return -1;
         }
         //check for invalid mode
-        if(ftEnt.mode.equals("w") || ftEnt.mode.equals("w+") || ftEnt.mode.equals("a"))
+        if(ftEnt.mode.equals("w") || ftEnt.mode.equals("a"))
         {
             return -1;
         }
+
+        System.out.println("fsize(ftEnt): " + fsize(ftEnt));
+
+        // if (fsize(ftEnt) == 0)
+        // {
+        //     return 0;
+        // }
         
+
+        synchronized(ftEnt)
+        {
         int sizeLeft = 0;
         int readTotal = 0;
         int buffSize = buffer.length;
+
+        System.out.println("buffSize: " + buffSize);
+
         //can only read to the length of the file on each entry and till the buffer
         while((ftEnt.seekPtr < fsize(ftEnt)) && buffSize > 0)
+        // while(buffSize > 0)
         {
+            System.out.println("start of while()");
+
             //get the block where the ftEnt seek Ptr is at, should be set to 0 for read
             int blockNum = ftEnt.inode.getSeekPtrBlock(ftEnt.seekPtr);
             System.out.println("BlockNum: " + blockNum);
+
             if(blockNum != -1) //if not at direct or indirect in the inode
             {
                 //need the block number for rawread
@@ -152,7 +165,7 @@ public class FileSystem
                 if(remainingBlocks < remainingData)
                 {
                     sizeLeft = remainingBlocks; //then we still need to read remaining blocks
-                    if(sizeLeft < buffSize) //if the remaining blocks are less than what's remaining in the buffer
+                    if(buffSize < sizeLeft) //if the remaining blocks are less than what's remaining in the buffer
                     {
                       sizeLeft = buffSize; //then the sizeLeft would be what remains of buffSize
                     }
@@ -160,15 +173,17 @@ public class FileSystem
                 else //file data left
                 {
                    sizeLeft = remainingData;
-                   if(sizeLeft < buffSize) //if the remaining data are less than what's remaining in the buffer
+                   if(buffSize < sizeLeft) //if the remaining blocks are less than what's remaining in the buffer
                    {
                     sizeLeft = buffSize; //then the sizeLeft would be what remains of buffSize
                    }
                 }
 
-                System.out.println("Size Read:" + sizeLeft);
+                // System.out.println("Size Read:" + sizeLeft);
                 //copy data read
                 System.arraycopy(data, dataRead, buffer, readTotal, sizeLeft);
+
+                // System.out.println("sizeLeft: " + sizeLeft);
             
                 readTotal += sizeLeft; //update what was currently read
 
@@ -180,14 +195,18 @@ public class FileSystem
         }
 
         System.out.println("Size: " + readTotal);
+        System.out.println("buffSize: " + buffSize);
 
         return readTotal;
+        }
     }
 
     int write(FileTableEntry ftEnt, byte[] buffer)
     {
         System.out.println("top of write() in FileSystem.");
 
+        synchronized(ftEnt)
+        {
         //check if buffer is empty
         if(buffer == null || ftEnt == null)
         {
@@ -200,11 +219,14 @@ public class FileSystem
             System.out.println("inside of if mode == r in write()");
             return -1;
         }
-        int leftToWrite;
+        // int leftToWrite;
         //int readTotal = 0;
         int writtenTotal = 0;
         int sizeWrite = 0;
         int buffSize = buffer.length;
+
+        System.out.println("buffSize: " + buffSize);
+
         while(buffSize > 0)
         {
             // System.out.println("inside of while in write()");
@@ -214,12 +236,12 @@ public class FileSystem
             
             // -1 indirect, direct if it's an empty inode
             int blockNum = ftEnt.inode.getSeekPtrBlock(ftEnt.seekPtr); //get block number where seekPtr is at
-            System.out.print("BlockNum: " + blockNum);
+            System.out.println("BlockNum: " + blockNum);
             
             //get the free block, set it to inode on ftEnt
-            if(blockNum == -1)
+            while (blockNum == -1)
             {
-                 // System.out.println("adter getSeekPtrBlock() in write()");
+                System.out.println("while blockNum == -1");
 
                 int availableBlock = superblock.getFreeBlock(); //get available block to write to
 
@@ -240,13 +262,15 @@ public class FileSystem
 
             byte[] data = new byte[Disk.blockSize];
             SysLib.rawread(blockNum, data); //get data at current block
+
+            System.out.println("after rawread() in write()");
          
             int dataRead = ftEnt.seekPtr % Disk.blockSize; //get data read
 
             //find out how much more left to read
             int remainingBlocks = Disk.blockSize - dataRead; //remaining blocks to read
             
-            sizeWrite = remainingBlocks - ftEnt.seekPtr; //remaining data left in file
+            // sizeWrite = remainingBlocks - ftEnt.seekPtr; //remaining data left in file
 
             System.out.println("fsize(ftEnt): " + fsize(ftEnt));
 
@@ -284,6 +308,7 @@ public class FileSystem
         ftEnt.inode.toDisk(ftEnt.iNumber); //write to the disk
 
         return writtenTotal;
+        }
     }
 
     private boolean deallocAllBlocks(FileTableEntry ftEnt)
@@ -385,7 +410,12 @@ public class FileSystem
         {
             ftEnt.seekPtr =  fsize(ftEnt) + offset;
         }
+        else
+        {
+            return -1;
+        }
 
+        System.out.println("seekptr: " + ftEnt.seekPtr);
         return ftEnt.seekPtr;
     }
 }

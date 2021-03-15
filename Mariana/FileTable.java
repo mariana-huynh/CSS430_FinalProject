@@ -70,11 +70,11 @@ public class FileTable
                     // catch (InterruptedException e)
                     // {}
 
-                    if (inode.flag == UNUSED || inode.flag == USED)
+                    if (inode.flag == UNUSED || inode.flag == USED || inode.flag == READ)
                     {
                         System.out.println("inside if unused or used in falloc.");
 
-                        inode.flag = USED;
+                        inode.flag = READ;
                         break;
                     }
                     else
@@ -88,7 +88,7 @@ public class FileTable
                         catch (InterruptedException e)
                         {}
 
-                        continue;
+                        // continue;
                     }
                 }
                 else
@@ -98,30 +98,59 @@ public class FileTable
                         iNumber = -1;
                         return null;
                     }
-
-                    if (inode.flag == UNUSED || inode.flag == USED)
+                    else if (inode.flag == USED || inode.flag == UNUSED)
                     {
-                        break;
+                        if (inode.flag == USED || inode.flag == READ)
+                        {
+                            inode.flag = WRITE;
+                            // inode.toDisk(iNumber);
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            wait();
+                        }
+                        catch (InterruptedException e)
+                        {}
                     }
 
-                    if (inode.flag == WRITE)
-                    {
-                        inode.flag = READ;
-                        break;
-                    }
+                    // if (inode.flag == UNUSED || inode.flag == USED)
+                    // {
+                    //     break;
+                    // }
 
-                    if (inode.flag == READ)
-                    {
-                        inode.flag = WRITE;
-                        break;
-                    }
+                    // if (inode.flag == WRITE)
+                    // {
+                    //     inode.flag = READ;
+                    //     break;
+                    // }
 
-                    try
-                    {
-                        wait();
-                    }
-                    catch (InterruptedException e)
-                    {}
+                    // if (inode.flag == READ)
+                    // {
+                    //     inode.flag = WRITE;
+                    //     break;
+                    // }
+
+                    // if (inode.flag != UNUSED && inode.flag != WRITE)
+                    // {
+                    //     if (inode.flag == USED || inode.flag == READ)
+                    //     {
+                    //         inode.flag = WRITE;
+                    //         inode.toDisk(iNumber);
+                    //     }
+                    // }
+
+                    // try
+                    // {
+                    //     wait();
+                    // }
+                    // catch (InterruptedException e)
+                    // {}
+
+
                 }
             }
             else if (mode.compareTo("r") != 0)
