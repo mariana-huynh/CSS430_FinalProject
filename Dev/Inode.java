@@ -120,7 +120,8 @@ public class Inode
             //scan the index block, indirect pointer
             byte[] blockData = new byte[Disk.blockSize];
             SysLib.rawread(indirect, blockData);
-            int offset = (block - directSize) * 2;
+            // int offset = (block - directSize) * 2;
+            int offset = (block - directSize);
 
             return SysLib.bytes2short(blockData, offset); //indirect is a short
         }

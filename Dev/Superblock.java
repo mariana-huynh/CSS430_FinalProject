@@ -59,7 +59,8 @@ public class SuperBlock
             newInode.toDisk((short) i);
         }
 
-        freeList = inodeBlocks / 16 + 1;
+        // freeList = inodeBlocks / 16 + 1;
+        freeList = 2 + (inodeBlocks / 16);
 
         // create new free blocks and write to disk
         for (int i = freeList; i < totalBlocks; i++)
@@ -98,9 +99,14 @@ public class SuperBlock
 		}
     
         byte[] blockData = new byte[Disk.blockSize];
-        SysLib.rawwrite(freeList, blockData);
-        // get the next free block
+        SysLib.rawread(freeList, blockData);
         freeList = SysLib.bytes2int(blockData, 0);
+        SysLib.int2bytes(0, blockData, 0);
+        SysLib.rawwrite(freeBlocks, blockData);
+        // get the next free block
+        // freeList = SysLib.bytes2int(blockData, 0);
+
+        System.out.println("freeBlocks in getFreeBlock() in SuperBlock: " + freeBlocks);
 
         return freeBlocks;
     }
