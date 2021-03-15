@@ -195,7 +195,6 @@ public class Kernel
                         myTcb = scheduler.getMyTcb();
                         if(myTcb != null)
                         {
-                          
                           entry = myTcb.getFtEnt(param);
                           if(entry != null)
                             return fs.read(entry, (byte[])args);
@@ -275,9 +274,15 @@ public class Kernel
                           
                     case SIZE:    // to be implemented in project
                         myTcb = scheduler.getMyTcb();
-                        entry = myTcb.getFtEnt(param);
-                        fs.fsize(entry);
-                        return OK;
+                        if (myTcb != null)
+                        {
+                            entry = myTcb.getFtEnt(param);
+                            if (entry != null)
+                            {
+                                return fs.fsize(entry);
+                            }
+                        }
+                        return ERROR;
                     case SEEK:    // to be implemented in project
                         int[] ow = (int[])args;
                         myTcb = scheduler.getMyTcb();
@@ -288,7 +293,7 @@ public class Kernel
                           r = fs.seek(entry, ow[0], ow[1]);
                           if(r == -1)
                             return ERROR;
-                          return OK;
+                          return r;
                             
                         }
                           
